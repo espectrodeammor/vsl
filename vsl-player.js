@@ -8,7 +8,7 @@
  *        data-reveal-at="150" data-key="guia-seguro"></div>
  *   <script src="https://TU-USUARIO.github.io/vsl/vsl-player.js"></script>
  *
- * Todo lo que lleve la clase vsl-hide se oculta y se muestra al segundo
+ * Todo lo que lleve la clase  vsl-hide  se oculta y se muestra al segundo
  * data-reveal-at (tiempo REAL de reproducción, no tiempo de página).
  *
  * Opciones (data-*):  src, poster, reveal-at (s, 150), key, curve (3),
@@ -84,6 +84,7 @@
     var storageKey = "vsl:" + (opts.key || "default");
     var revealAt = Number(opts.revealAt) || 150;
     var curve = Number(opts.curve) || 3;
+    var loop = String(opts.loop) !== "0"; // por defecto: al terminar, vuelve a empezar
     var state = store.get(storageKey); // {t, revealed, done}
 
     root.textContent = "";
@@ -188,6 +189,12 @@
       var s = store.get(storageKey); s.t = 0; s.done = true; s.revealed = true; store.set(storageKey, s);
       track("progress_100", {});
       reveal("ended");
+      if (loop) { // bucle: vuelve al inicio y sigue sonando
+        maxT = 0; lastT = 0;
+        setTime(0);
+        track("loop", {});
+        var p = video.play(); if (p && p.catch) p.catch(function () {});
+      }
     });
     video.addEventListener("pause", function () {
       // Sin pausa: si no ha terminado y la pestaña está visible, se reanuda.
@@ -293,6 +300,7 @@
         revealAt: n.getAttribute("data-reveal-at"),
         key: n.getAttribute("data-key"),
         curve: n.getAttribute("data-curve"),
+        loop: n.getAttribute("data-loop"),
         duration: n.getAttribute("data-duration")
       });
     }
