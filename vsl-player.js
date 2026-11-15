@@ -195,8 +195,28 @@
         setTime(0);
         track("loop", {});
         var p = video.play(); if (p && p.catch) p.catch(function () {});
+      } else {
+        showReplay(); // al terminar: pantalla con "Ver video de nuevo"
       }
     });
+    function showReplay() {
+      if (frame.querySelector(".vsl-replay")) return;
+      var soft = frame.querySelector(".vsl-soft"); if (soft) removeOverlay(soft); // fuera el aviso de sonido
+      var o = el("div", "vsl-overlay vsl-replay");
+      var b = el("button", "vsl-btn", "↻ Ver video de nuevo");
+      b.type = "button"; b.style.touchAction = "manipulation";
+      b.addEventListener("click", function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        if (e && e.stopPropagation) e.stopPropagation();
+        removeOverlay(o);
+        maxT = 0; lastT = 0; setTime(0);
+        video.muted = false;
+        var p = video.play(); if (p && p.catch) p.catch(function () {});
+        track("replay", {});
+      });
+      o.appendChild(b); frame.appendChild(o);
+    }
+    video.addEventListener("play", function () { var r = frame.querySelector(".vsl-replay"); if (r) removeOverlay(r); });
     video.addEventListener("pause", function () {
       // Sin pausa: si no ha terminado y la pestaña está visible, se reanuda.
       if (!pausable && !video.ended && document.visibilityState === "visible" && started && !qa) {
