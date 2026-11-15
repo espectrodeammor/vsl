@@ -84,7 +84,8 @@
     var storageKey = "vsl:" + (opts.key || "default");
     var revealAt = Number(opts.revealAt) || 150;
     var curve = Number(opts.curve) || 3;
-    var loop = String(opts.loop) !== "0"; // por defecto: al terminar, vuelve a empezar
+    var loop = String(opts.loop) === "1";       // data-loop="1": al terminar, vuelve a empezar
+    var pausable = String(opts.pausable) === "1"; // data-pausable="1": la persona puede pausar/continuar tocando el video
     var state = store.get(storageKey); // {t, revealed, done}
 
     root.textContent = "";
@@ -114,8 +115,8 @@
     bar.appendChild(fill);
     var note = el("div", "vsl-note", "Sube el volumen para escucharlo bien.");
     wrap.appendChild(frame);
-    wrap.appendChild(bar);
-    wrap.appendChild(note);
+    if (String(opts.bar) !== "0") wrap.appendChild(bar);
+    if (String(opts.note) !== "0") wrap.appendChild(note);
     root.appendChild(wrap);
 
     // ---- estado del reproductor ----
@@ -198,10 +199,29 @@
     });
     video.addEventListener("pause", function () {
       // Sin pausa: si no ha terminado y la pestaña está visible, se reanuda.
-      if (!video.ended && document.visibilityState === "visible" && started && !qa) {
+      if (!pausable && !video.ended && document.visibilityState === "visible" && started && !qa) {
         var p = video.play(); if (p && p.catch) p.catch(function () {});
       }
     });
+    if (pausable) {
+      var pauseOv = null;
+      shield.style.cursor = "pointer";
+      shield.addEventListener("click", function () {
+        if (!started) return;
+        if (video.paused) { video.play(); } else { video.pause(); }
+      });
+      video.addEventListener("pause", function () {
+        if (video.ended || pauseOv || !started) return;
+        pauseOv = el("div", "vsl-overlay vsl-soft vsl-paused");
+        pauseOv.style.justifyContent = "center"; pauseOv.style.alignItems = "center";
+        pauseOv.appendChild(el("div", "vsl-btn", "▶ Toca para continuar"));
+        frame.appendChild(pauseOv);
+        track("pause", { at: Math.round(video.currentTime) });
+      });
+      video.addEventListener("playing", function () {
+        if (pauseOv) { removeOverlay(pauseOv); pauseOv = null; }
+      });
+    }
     document.addEventListener("visibilitychange", function () { save(true); });
     window.addEventListener("pagehide", function () { save(true); });
 
@@ -301,6 +321,9 @@
         key: n.getAttribute("data-key"),
         curve: n.getAttribute("data-curve"),
         loop: n.getAttribute("data-loop"),
+        pausable: n.getAttribute("data-pausable"),
+        bar: n.getAttribute("data-bar"),
+        note: n.getAttribute("data-note"),
         duration: n.getAttribute("data-duration")
       });
     }
