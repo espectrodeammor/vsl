@@ -205,22 +205,41 @@
     });
     if (pausable) {
       var pauseOv = null;
-      shield.style.cursor = "pointer";
-      shield.addEventListener("click", function () {
+      var lastToggle = 0;
+      // Un solo punto de control para reproducir/pausar (evita dobles disparos)
+      function toggle(e) {
+        if (e) { if (e.preventDefault) e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); }
+        var now = Date.now();
+        if (now - lastToggle < 350) return; // ignora el segundo evento de un mismo toque
+        lastToggle = now;
         if (!started) return;
-        if (video.paused) { video.play(); } else { video.pause(); }
-      });
-      video.addEventListener("pause", function () {
-        if (video.ended || pauseOv || !started) return;
+        if (video.paused) {
+          var p = video.play(); if (p && p.catch) p.catch(function () {});
+        } else {
+          video.pause();
+        }
+      }
+      function showPaused() {
+        if (pauseOv || video.ended || !started) return;
         pauseOv = el("div", "vsl-overlay vsl-soft vsl-paused");
         pauseOv.style.justifyContent = "center"; pauseOv.style.alignItems = "center";
-        pauseOv.appendChild(el("div", "vsl-btn", "▶ Toca para continuar"));
+        var btn = el("button", "vsl-btn", "▶ Toca para continuar");
+        btn.type = "button";
+        btn.style.touchAction = "manipulation";
+        btn.addEventListener("click", toggle); // el botón sí ejecuta la acción sobre el video real
+        pauseOv.appendChild(btn);
         frame.appendChild(pauseOv);
         track("pause", { at: Math.round(video.currentTime) });
-      });
-      video.addEventListener("playing", function () {
+      }
+      function hidePaused() {
         if (pauseOv) { removeOverlay(pauseOv); pauseOv = null; }
-      });
+      }
+      shield.style.cursor = "pointer";
+      shield.style.touchAction = "manipulation";
+      shield.addEventListener("click", toggle);
+      video.addEventListener("pause", showPaused);
+      video.addEventListener("play", hidePaused);
+      video.addEventListener("playing", hidePaused);
     }
     document.addEventListener("visibilitychange", function () { save(true); });
     window.addEventListener("pagehide", function () { save(true); });
