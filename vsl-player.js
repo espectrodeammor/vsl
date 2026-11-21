@@ -12,7 +12,7 @@
  * data-reveal-at (tiempo REAL de reproducción, no tiempo de página).
  *
  * Opciones (data-*):  src, poster, reveal-at (s, 150), key, curve (3),
- *                     duration (solo pruebas)
+ *                     duration (solo pruebas), warn (texto del aviso al pausar)
  * Modo prueba:  agrega  ?qa=1  a la URL → muestra todo y permite saltar.
  */
 (function () {
@@ -39,6 +39,13 @@
     ".vsl-bar{height:8px;margin-top:12px;border-radius:999px;background:rgba(167,199,231,.45);overflow:hidden}",
     ".vsl-fill{height:100%;width:0;background:" + COLORS.gold + ";border-radius:999px}",
     ".vsl-note{text-align:center;font-size:13px;margin-top:10px;opacity:.8}",
+    ".vsl-frame video{transition:filter .5s,transform .5s}",
+    ".vsl-frame.vsl-blur video{filter:blur(14px) brightness(.85);transform:scale(1.08)}",
+    ".vsl-overlay.vsl-paused{background:rgba(22,41,74,.35);gap:12px}",
+    ".vsl-warn{display:flex;align-items:center;gap:10px;max-width:440px;color:#fff;font:700 clamp(12.5px,3.4vw,16px)/1.3 Montserrat,Arial,sans-serif;text-align:left;text-shadow:0 2px 10px rgba(0,0,0,.55)}",
+    ".vsl-warn i{font-style:normal;font-size:1.7em;line-height:1;animation:vslblink 1s ease-in-out infinite}",
+    "@keyframes vslblink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(1.18)}}",
+    "@media (prefers-reduced-motion:reduce){.vsl-warn i{animation:none}}",
     ".vsl-qa{margin-top:8px;font-size:12px;text-align:center}",
     ".vsl-qa button{margin:0 4px;padding:4px 10px;border-radius:6px;border:1px solid " + COLORS.navy + ";background:" + COLORS.ivory + ";cursor:pointer}"
   ].join("\n");
@@ -241,17 +248,33 @@
       }
       function showPaused() {
         if (pauseOv || video.ended || !started) return;
-        pauseOv = el("div", "vsl-overlay vsl-soft vsl-paused");
-        pauseOv.style.justifyContent = "center"; pauseOv.style.alignItems = "center";
+        pauseOv = el("div", "vsl-overlay vsl-paused");
+        var warn = el("div", "vsl-warn");
+        var ico = el("i", null, "⚠️"); ico.setAttribute("aria-hidden", "true");
+        warn.appendChild(ico);
+        warn.appendChild(el("span", null, opts.warn || "Si sales de esta página, podrías perder el acceso a este video."));
+        var row = el("div", "vsl-row");
         var btn = el("button", "vsl-btn", "▶ Toca para continuar");
-        btn.type = "button";
-        btn.style.touchAction = "manipulation";
+        var again = el("button", "vsl-btn vsl-ghost", "↻ Empezar de nuevo");
+        btn.type = again.type = "button";
+        btn.style.touchAction = again.style.touchAction = "manipulation";
         btn.addEventListener("click", toggle); // el botón sí ejecuta la acción sobre el video real
-        pauseOv.appendChild(btn);
+        again.addEventListener("click", function (e) {
+          if (e && e.preventDefault) e.preventDefault();
+          if (e && e.stopPropagation) e.stopPropagation();
+          maxT = 0; lastT = 0; setTime(0);
+          video.muted = false;
+          var p = video.play(); if (p && p.catch) p.catch(function () {});
+          track("restart", {});
+        });
+        row.appendChild(btn); row.appendChild(again);
+        pauseOv.appendChild(warn); pauseOv.appendChild(row);
+        frame.classList.add("vsl-blur");
         frame.appendChild(pauseOv);
         track("pause", { at: Math.round(video.currentTime) });
       }
       function hidePaused() {
+        frame.classList.remove("vsl-blur");
         if (pauseOv) { removeOverlay(pauseOv); pauseOv = null; }
       }
       shield.style.cursor = "pointer";
@@ -273,7 +296,7 @@
       b.type = "button";
       b.addEventListener("click", function () {
         video.muted = false;
-        if (video.currentTime < 10) setTime(0);
+        maxT = 0; lastT = 0; setTime(0); // siempre empieza desde el principio, sin importar cuánto llevara reproduciéndose en silencio
         track("unmute", {});
         removeOverlay(o);
       });
@@ -363,7 +386,8 @@
         pausable: n.getAttribute("data-pausable"),
         bar: n.getAttribute("data-bar"),
         note: n.getAttribute("data-note"),
-        duration: n.getAttribute("data-duration")
+        duration: n.getAttribute("data-duration"),
+        warn: n.getAttribute("data-warn")
       });
     }
   }
